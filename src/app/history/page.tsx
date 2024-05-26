@@ -28,7 +28,7 @@ const History: FC = () => {
     useEffect(() => {
         const fetchCheckoutHistory = async () => {
             try {
-                const response = await axios.get<CheckoutHistoryItem>('http://localhost:8080/histories/2');
+                const response = await axios.get<CheckoutHistoryItem>('http://localhost:8080/histories/1');
                 setCheckoutHistory(response.data);
             } catch (error) {
                 console.error('Error fetching checkout history:', error);

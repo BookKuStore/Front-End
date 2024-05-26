@@ -12,6 +12,7 @@ interface Product {
     productName: string;
     price: number;
     imageUrl: string;
+    tokenBuku: string;
 }
 
 interface History {
@@ -57,14 +58,14 @@ const CartPage: NextPage = () => {
 
     const fetchCartData = async () => {
         try {
-            const response = await axios.get<Cart>('http://localhost:8080/carts/33');
+            const response = await axios.get<Cart>('http://localhost:8080/carts/1');
             if (!response.data) {
                 await axios.post('http://localhost:8080/carts', {
                     cartId: 1,
                     products: [],
                     totalPrice: 0.0
                 });
-                const newCartResponse = await axios.get<Cart>('http://localhost:8080/carts/33');
+                const newCartResponse = await axios.get<Cart>('http://localhost:8080/carts/1');
                 setCart(newCartResponse.data);
             } else {
                 setCart(response.data);
@@ -78,7 +79,7 @@ const CartPage: NextPage = () => {
 
     const fetchHistoryData = async () => {
         try {
-            const response = await axios.get<History>('http://localhost:8080/histories/2');
+            const response = await axios.get<History>('http://localhost:8080/histories/1');
             setPaidCheckouts(response.data.paidCheckouts.length);
         } catch (error) {
             console.error('Error fetching history:', error);
@@ -116,6 +117,18 @@ const CartPage: NextPage = () => {
                 return;
             }
 
+            // Kirim setiap produk dalam keranjang ke endpoint book/buy
+            for (const product of cart.products) {
+                console.log("memek" + product.tokenBuku)
+                console.log(product)
+                console.log(product.tokenBuku)
+                await axios.post('http://34.87.170.153/book/buy', {
+                    id: product.tokenBuku,
+                    quantity: 1
+                });
+            }
+
+            // Setelah semua produk dikirim, lanjutkan dengan proses checkout seperti biasa
             await axios.post('http://localhost:8080/histories', []);
             const productData: Array<object> = cart.products.map(product => ({
                 productName: product.productName,
@@ -123,30 +136,31 @@ const CartPage: NextPage = () => {
                 imageUrl: product.imageUrl
             }));
 
-            await axios.post('http://localhost:8080/histories/2/add-cart', {
+            await axios.post('http://localhost:8080/histories/1/add-cart', {
                 products: productData,
-                totalPrice: isCouponApplied ? discount : cart.totalPrice // Use discount if coupon applied
+                totalPrice: isCouponApplied ? discount : cart.totalPrice // Gunakan diskon jika kupon diterapkan
             });
 
-            await axios.put('http://localhost:8080/carts/33/reset', {});
+            await axios.put('http://localhost:8080/carts/1/reset', {});
 
-            // Reset the coupon states
+            // Reset status kupon
             setSelectedCoupon(null);
             setDiscount(0);
             setIsCouponApplied(false);
-            setDropdownOpen(false); // Close the dropdown
+            setDropdownOpen(false); // Tutup dropdown setelah memilih kupon
 
-            // Fetch the updated cart data
+            // Ambil data keranjang yang diperbarui
             fetchCartData();
         } catch (error) {
             console.error('Error during checkout:', error);
         }
     };
 
+
     const handleDeleteProduct = async (productId: number) => {
         try {
-            await axios.delete(`http://localhost:8080/carts/33/products/${productId}`);
-            const response = await axios.get<Cart>('http://localhost:8080/carts/33');
+            await axios.delete(`http://localhost:8080/carts/1/products/${productId}`);
+            const response = await axios.get<Cart>('http://localhost:8080/carts/1');
             const totalPrice = response.data.products.reduce((total, product) => total + product.price, 0);
             const updatedCart = { ...response.data, totalPrice };
             setCart(updatedCart);
@@ -162,8 +176,8 @@ const CartPage: NextPage = () => {
 
     const handleAddProduct = async () => {
         try {
-            await axios.post('http://localhost:8080/carts/33/products', { ...formData });
-            const response = await axios.get<Cart>('http://localhost:8080/carts/33');
+            await axios.post('http://localhost:8080/carts/1/products', { ...formData });
+            const response = await axios.get<Cart>('http://localhost:8080/carts/1');
             const totalPrice = response.data.products.reduce((total, product) => total + product.price, 0);
             const updatedCart = { ...response.data, totalPrice };
             setCart(updatedCart);
