@@ -55,17 +55,33 @@ const CartPage: NextPage = () => {
         imageUrl: ''
     });
     const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [userData, setUserData] = useState<{ cartId: number, historyId: number } | null>(null);
 
-    const fetchCartData = async () => {
+    const authHeaders = {
+        'Content-Type': 'application/json',
+        'X-API-KEY': 'KNziwqdninINDidwqdji192j9e1cmkasdnaksdnii932niNINi39rnd',
+        'Authorization': `${localStorage.getItem('accessToken')}`,
+    };
+
+    const fetchUserData = async () => {
         try {
-            const response = await axios.get<Cart>('http://localhost:8080/carts/1');
+            const response = await axios.get('http://34.66.73.124/account/get-account', { headers: authHeaders });
+            setUserData({ cartId: response.data.cartId, historyId: response.data.historyId });
+        } catch (error) {
+            console.error('Error fetching user data:', error);
+        }
+    };
+
+    const fetchCartData = async (cartId: number) => {
+        try {
+            const response = await axios.get<Cart>(`http://34.101.88.254/carts/${cartId}`, { headers: authHeaders });
             if (!response.data) {
-                await axios.post('http://localhost:8080/carts', {
-                    cartId: 1,
+                await axios.post('http://34.101.88.254/carts', {
+                    cartId: cartId,
                     products: [],
                     totalPrice: 0.0
-                });
-                const newCartResponse = await axios.get<Cart>('http://localhost:8080/carts/1');
+                }, { headers: authHeaders });
+                const newCartResponse = await axios.get<Cart>(`http://34.101.88.254/carts/${cartId}`, { headers: authHeaders });
                 setCart(newCartResponse.data);
             } else {
                 setCart(response.data);
@@ -77,9 +93,9 @@ const CartPage: NextPage = () => {
         }
     };
 
-    const fetchHistoryData = async () => {
+    const fetchHistoryData = async (historyId: number) => {
         try {
-            const response = await axios.get<History>('http://localhost:8080/histories/1');
+            const response = await axios.get<History>(`http://34.101.88.254/histories/${historyId}`, { headers: authHeaders });
             setPaidCheckouts(response.data.paidCheckouts.length);
         } catch (error) {
             console.error('Error fetching history:', error);
@@ -88,7 +104,7 @@ const CartPage: NextPage = () => {
 
     const fetchCoupons = async () => {
         try {
-            const response = await axios.get<Coupon[]>('http://34.87.61.85/semua-kupon');
+            const response = await axios.get<Coupon[]>('http://34.87.61.85/semua-kupon', { headers: authHeaders });
             // Filter only valid coupons
             const validCoupons = response.data.filter(coupon => coupon.valid);
             const numCoupons = paidCheckouts >= 20 ? 10 : paidCheckouts >= 10 ? 5 : paidCheckouts >= 5 ? 3 : 0;
@@ -100,9 +116,15 @@ const CartPage: NextPage = () => {
     };
 
     useEffect(() => {
-        fetchCartData();
-        fetchHistoryData();
+        fetchUserData();
     }, []);
+
+    useEffect(() => {
+        if (userData) {
+            fetchCartData(userData.cartId);
+            fetchHistoryData(userData.historyId);
+        }
+    }, [userData]);
 
     useEffect(() => {
         if (paidCheckouts >= 5) {
@@ -112,36 +134,33 @@ const CartPage: NextPage = () => {
 
     const handleCheckout = async () => {
         try {
-            if (!cart || !cart.products.length) {
-                console.error('Cart is empty');
+            if (!cart || !cart.products.length || !userData) {
+                console.error('Cart is empty or user data not available');
                 return;
             }
 
             // Kirim setiap produk dalam keranjang ke endpoint book/buy
             for (const product of cart.products) {
-                console.log("memek" + product.tokenBuku)
-                console.log(product)
-                console.log(product.tokenBuku)
                 await axios.post('http://34.87.170.153/book/buy', {
                     id: product.tokenBuku,
                     quantity: 1
-                });
+                }, { headers: authHeaders });
             }
 
             // Setelah semua produk dikirim, lanjutkan dengan proses checkout seperti biasa
-            await axios.post('http://localhost:8080/histories', []);
+            await axios.post('http://34.101.88.254/histories', [], { headers: authHeaders });
             const productData: Array<object> = cart.products.map(product => ({
                 productName: product.productName,
                 price: product.price,
                 imageUrl: product.imageUrl
             }));
 
-            await axios.post('http://localhost:8080/histories/1/add-cart', {
+            await axios.post(`http://34.101.88.254/histories/${userData.historyId}/add-cart`, {
                 products: productData,
                 totalPrice: isCouponApplied ? discount : cart.totalPrice // Gunakan diskon jika kupon diterapkan
-            });
+            }, { headers: authHeaders });
 
-            await axios.put('http://localhost:8080/carts/1/reset', {});
+            await axios.put(`http://34.101.88.254/carts/${userData.cartId}/reset`, {}, { headers: authHeaders });
 
             // Reset status kupon
             setSelectedCoupon(null);
@@ -150,17 +169,20 @@ const CartPage: NextPage = () => {
             setDropdownOpen(false); // Tutup dropdown setelah memilih kupon
 
             // Ambil data keranjang yang diperbarui
-            fetchCartData();
+            fetchCartData(userData.cartId);
         } catch (error) {
             console.error('Error during checkout:', error);
         }
     };
 
-
     const handleDeleteProduct = async (productId: number) => {
         try {
-            await axios.delete(`http://localhost:8080/carts/1/products/${productId}`);
-            const response = await axios.get<Cart>('http://localhost:8080/carts/1');
+            if (!userData) {
+                console.error('User data not available');
+                return;
+            }
+            await axios.delete(`http://34.101.88.254/carts/${userData.cartId}/products/${productId}`, { headers: authHeaders });
+            const response = await axios.get<Cart>(`http://34.101.88.254/carts/${userData.cartId}`, { headers: authHeaders });
             const totalPrice = response.data.products.reduce((total, product) => total + product.price, 0);
             const updatedCart = { ...response.data, totalPrice };
             setCart(updatedCart);
@@ -176,8 +198,12 @@ const CartPage: NextPage = () => {
 
     const handleAddProduct = async () => {
         try {
-            await axios.post('http://localhost:8080/carts/1/products', { ...formData });
-            const response = await axios.get<Cart>('http://localhost:8080/carts/1');
+            if (!userData) {
+                console.error('User data not available');
+                return;
+            }
+            await axios.post(`http://34.101.88.254/carts/${userData.cartId}/products`, { ...formData }, { headers: authHeaders });
+            const response = await axios.get<Cart>(`http://34.101.88.254/carts/${userData.cartId}`, { headers: authHeaders });
             const totalPrice = response.data.products.reduce((total, product) => total + product.price, 0);
             const updatedCart = { ...response.data, totalPrice };
             setCart(updatedCart);
@@ -207,10 +233,14 @@ const CartPage: NextPage = () => {
 
     const handleCouponSelection = async (coupon: Coupon) => {
         try {
+            if (!cart) {
+                console.error('Cart data not available');
+                return;
+            }
             console.log('Selected Coupon:', coupon);
-            console.log('Cart Total Price:', cart?.totalPrice);
+            console.log('Cart Total Price:', cart.totalPrice);
 
-            const response = await axios.get(`http://34.87.61.85/gunakan-kupon/${coupon.kode}/${cart?.totalPrice}`);
+            const response = await axios.get(`http://34.87.61.85/gunakan-kupon/${coupon.kode}/${cart.totalPrice}`, { headers: authHeaders });
 
             console.log('Response from server kupon:', response.data);
 

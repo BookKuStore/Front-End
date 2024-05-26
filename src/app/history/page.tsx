@@ -1,4 +1,4 @@
-'use client'
+'use client';
 import { FC, useEffect, useState } from 'react';
 import axios from 'axios';
 import { FaHistory, FaProductHunt } from 'react-icons/fa';
@@ -24,19 +24,41 @@ type CheckoutHistoryItem = {
 
 const History: FC = () => {
     const [checkoutHistory, setCheckoutHistory] = useState<CheckoutHistoryItem | null>(null);
+    const [historyId, setHistoryId] = useState<number | null>(null);
+
+    const authHeaders = {
+        'Content-Type': 'application/json',
+        'X-API-KEY': 'KNziwqdninINDidwqdji192j9e1cmkasdnaksdnii932niNINi39rnd',
+        'Authorization': `${localStorage.getItem('accessToken')}`,
+    };
+
+    const fetchUserData = async () => {
+        try {
+            const response = await axios.get('http://34.66.73.124/account/get-account', { headers: authHeaders });
+            setHistoryId(response.data.historyId);
+        } catch (error) {
+            console.error('Error fetching user data:', error);
+        }
+    };
+
+    const fetchCheckoutHistory = async (historyId: number) => {
+        try {
+            const response = await axios.get<CheckoutHistoryItem>(`http://34.101.88.254/histories/${historyId}`, { headers: authHeaders });
+            setCheckoutHistory(response.data);
+        } catch (error) {
+            console.error('Error fetching checkout history:', error);
+        }
+    };
 
     useEffect(() => {
-        const fetchCheckoutHistory = async () => {
-            try {
-                const response = await axios.get<CheckoutHistoryItem>('http://localhost:8080/histories/1');
-                setCheckoutHistory(response.data);
-            } catch (error) {
-                console.error('Error fetching checkout history:', error);
-            }
-        };
-
-        fetchCheckoutHistory();
+        fetchUserData();
     }, []);
+
+    useEffect(() => {
+        if (historyId !== null) {
+            fetchCheckoutHistory(historyId);
+        }
+    }, [historyId]);
 
     return (
         <div className="min-h-screen bg-gray-100 flex flex-col items-center py-8 px-4 sm:px-6 lg:px-8">
